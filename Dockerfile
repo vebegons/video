@@ -3,7 +3,9 @@ FROM python:3.11-slim
 # تثبيت FFmpeg والأدوات المطلوبة
 RUN apt-get update && apt-get install -y \
     ffmpeg \
-    ffprobe \
+    libsm6 \
+    libxext6 \
+    # ffprobe (تم حذفه لأنه مدمج في ffmpeg أو غير موجود كحزمة منفصلة) \
     && rm -rf /var/lib/apt/lists/*
 
 # تعيين مجلد العمل
@@ -26,3 +28,4 @@ EXPOSE 8000
 
 # تشغيل التطبيق
 CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000"]
+ 
