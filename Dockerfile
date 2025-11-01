@@ -1,31 +1,36 @@
+## Dockerfile المُعدَّل لحل مشكلة "Could not import module app.main"
+
+# 1. المرحلة الأولى: اختيار الصورة الأساسية
 FROM python:3.11-slim
 
-# تثبيت FFmpeg والأدوات المطلوبة
-RUN apt-get update && apt-get install -y \
+# 2. تثبيت أدوات معالجة الفيديو: FFmpeg والأدوات المطلوبة
+# استخدام `--no-install-recommends` لتقليل حجم الصورة
+RUN apt-get update && apt-get install -y --no-install-recommends \
     ffmpeg \
     libsm6 \
     libxext6 \
-    # ffprobe (تم حذفه لأنه مدمج في ffmpeg أو غير موجود كحزمة منفصلة) \
     && rm -rf /var/lib/apt/lists/*
 
-# تعيين مجلد العمل
+# 3. تعيين مجلد العمل
+# سيتم نسخ جميع الملفات إليه (المسار: /app)
 WORKDIR /app
 
-# نسخ ملف المتطلبات
+# 4. نسخ ملف المتطلبات وتثبيتها
 COPY requirements.txt .
-
-# تثبيت المكتبات Python
 RUN pip install --no-cache-dir -r requirements.txt
 
-# نسخ ملفات التطبيق
+# 5. نسخ ملفات التطبيق
+# سيتم نسخ مجلد 'app' و 'Dockerfile' و 'requirements.txt' وباقي الملفات إلى /app
 COPY . .
 
-# إنشاء مجلد الرفع
+# 6. إنشاء مجلدات العمل (التي يحتاجها main.py)
 RUN mkdir -p uploads static templates
 
-# تعريض المنفذ
+# 7. تعريض المنفذ (Port)
+ENV PORT 8000
 EXPOSE 8000
 
-# تشغيل التطبيق
-CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000"]
- 
+# 8. تشغيل التطبيق (الأمر الحاسم)
+# تم التعديل إلى 'app.app.main:app' ليعكس المسار الصحيح داخل Docker:
+# /app (مجلد العمل) / app (المجلد المنسوخ) / main.py
+CMD ["uvicorn", "app.app.main:app", "--host", "0.0.0.0", "--port", "8000"]
