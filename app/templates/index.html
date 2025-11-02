@@ -4,680 +4,86 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>محقق الفيديو الأصلي - Video Source Finder</title>
-    <style>
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
-        }
-
-        :root {
-            --primary-color: #2563eb;
-            --secondary-color: #7c3aed;
-            --success-color: #10b981;
-            --warning-color: #f59e0b;
-            --danger-color: #ef4444;
-            --dark-bg: #0f172a;
-            --light-bg: #f8fafc;
-            --border-color: #e2e8f0;
-            --text-dark: #1e293b;
-            --text-light: #64748b;
-            --shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
-            --shadow-lg: 0 10px 25px rgba(0, 0, 0, 0.15);
-        }
-
-        body {
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-            background: linear-gradient(135deg, #f8fafc 0%, #e2e8f0 100%);
-            color: var(--text-dark);
-            line-height: 1.6;
-            min-height: 100vh;
-        }
-
-        .container {
-            max-width: 1200px;
-            margin: 0 auto;
-            padding: 20px;
-        }
-
-        .header {
-            background: linear-gradient(135deg, var(--primary-color) 0%, var(--secondary-color) 100%);
-            color: white;
-            padding: 40px 20px;
-            border-radius: 12px;
-            margin-bottom: 30px;
-            box-shadow: var(--shadow-lg);
-            text-align: center;
-        }
-
-        .header h1 {
-            font-size: 2.5em;
-            margin-bottom: 10px;
-            font-weight: 700;
-        }
-
-        .header p {
-            font-size: 1.1em;
-            opacity: 0.9;
-            font-weight: 300;
-        }
-
-        .nav-tabs {
-            display: flex;
-            gap: 10px;
-            margin-bottom: 30px;
-            flex-wrap: wrap;
-            justify-content: center;
-        }
-
-        .nav-btn {
-            padding: 12px 24px;
-            border: 2px solid var(--border-color);
-            background: white;
-            color: var(--text-dark);
-            border-radius: 8px;
-            cursor: pointer;
-            font-size: 1em;
-            font-weight: 600;
-            transition: all 0.3s ease;
-        }
-
-        .nav-btn:hover {
-            border-color: var(--primary-color);
-            color: var(--primary-color);
-            transform: translateY(-2px);
-        }
-
-        .nav-btn.active {
-            background: var(--primary-color);
-            color: white;
-            border-color: var(--primary-color);
-        }
-
-        .main-content {
-            background: white;
-            border-radius: 12px;
-            box-shadow: var(--shadow);
-            padding: 30px;
-            display: none;
-        }
-
-        .main-content.active {
-            display: block;
-        }
-
-        .upload-area {
-            border: 3px dashed var(--primary-color);
-            border-radius: 8px;
-            padding: 40px;
-            text-align: center;
-            cursor: pointer;
-            transition: all 0.3s ease;
-            background: var(--light-bg);
-        }
-
-        .upload-area:hover {
-            background: #eff6ff;
-            border-color: var(--secondary-color);
-        }
-
-        .upload-area.dragover {
-            background: #eff6ff;
-            border-color: var(--secondary-color);
-            transform: scale(1.02);
-        }
-
-        .upload-area h3 {
-            margin-bottom: 10px;
-            color: var(--primary-color);
-        }
-
-        .upload-area p {
-            color: var(--text-light);
-            margin-bottom: 15px;
-        }
-
-        #videoInput {
-            display: none;
-        }
-
-        .btn {
-            padding: 12px 24px;
-            border: none;
-            border-radius: 8px;
-            cursor: pointer;
-            font-size: 1em;
-            font-weight: 600;
-            transition: all 0.3s ease;
-            display: inline-block;
-        }
-
-        .btn-primary {
-            background: var(--primary-color);
-            color: white;
-        }
-
-        .btn-primary:hover {
-            background: #1d4ed8;
-            transform: translateY(-2px);
-            box-shadow: var(--shadow);
-        }
-
-        .btn-secondary {
-            background: var(--secondary-color);
-            color: white;
-        }
-
-        .btn-secondary:hover {
-            background: #6d28d9;
-        }
-
-        .btn-success {
-            background: var(--success-color);
-            color: white;
-        }
-
-        .btn-warning {
-            background: var(--warning-color);
-            color: white;
-        }
-
-        .btn-danger {
-            background: var(--danger-color);
-            color: white;
-        }
-
-        .results-section {
-            margin-top: 30px;
-            display: none;
-        }
-
-        .results-section.active {
-            display: block;
-        }
-
-        .quality-score-card {
-            background: linear-gradient(135deg, #f8fafc 0%, #e2e8f0 100%);
-            border-radius: 12px;
-            padding: 30px;
-            margin-bottom: 20px;
-            border-left: 5px solid var(--primary-color);
-        }
-
-        .quality-score-card.high {
-            border-left-color: var(--success-color);
-        }
-
-        .quality-score-card.medium {
-            border-left-color: var(--warning-color);
-        }
-
-        .quality-score-card.low {
-            border-left-color: var(--danger-color);
-        }
-
-        .score-display {
-            display: flex;
-            align-items: center;
-            gap: 20px;
-            margin-bottom: 20px;
-        }
-
-        .score-circle {
-            width: 120px;
-            height: 120px;
-            border-radius: 50%;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            font-size: 2.5em;
-            font-weight: 700;
-            color: white;
-            background: var(--primary-color);
-        }
-
-        .score-circle.high {
-            background: var(--success-color);
-        }
-
-        .score-circle.medium {
-            background: var(--warning-color);
-        }
-
-        .score-circle.low {
-            background: var(--danger-color);
-        }
-
-        .score-info h3 {
-            font-size: 1.5em;
-            margin-bottom: 10px;
-        }
-
-        .score-info p {
-            color: var(--text-light);
-            margin-bottom: 5px;
-        }
-
-        .indicators-list {
-            list-style: none;
-            margin-top: 20px;
-        }
-
-        .indicators-list li {
-            padding: 10px;
-            margin-bottom: 8px;
-            border-radius: 6px;
-            background: white;
-            border-left: 4px solid var(--border-color);
-        }
-
-        .indicators-list li.success {
-            border-left-color: var(--success-color);
-            background: #f0fdf4;
-        }
-
-        .indicators-list li.warning {
-            border-left-color: var(--warning-color);
-            background: #fffbeb;
-        }
-
-        .indicators-list li.danger {
-            border-left-color: var(--danger-color);
-            background: #fef2f2;
-        }
-
-        .frames-grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
-            gap: 20px;
-            margin-top: 20px;
-        }
-
-        .frame-card {
-            border-radius: 8px;
-            overflow: hidden;
-            box-shadow: var(--shadow);
-            transition: all 0.3s ease;
-        }
-
-        .frame-card:hover {
-            transform: translateY(-5px);
-            box-shadow: var(--shadow-lg);
-        }
-
-        .frame-image {
-            width: 100%;
-            height: 180px;
-            object-fit: cover;
-            background: var(--light-bg);
-        }
-
-        .frame-actions {
-            padding: 15px;
-            background: white;
-            display: flex;
-            flex-wrap: wrap;
-            gap: 8px;
-            justify-content: center;
-        }
-
-        .search-btn {
-            padding: 8px 12px;
-            border: none;
-            border-radius: 6px;
-            cursor: pointer;
-            font-size: 0.9em;
-            font-weight: 600;
-            transition: all 0.3s ease;
-            text-decoration: none;
-            color: white;
-        }
-
-        .search-btn:hover {
-            transform: scale(1.05);
-        }
-
-        .search-btn-google {
-            background: #4285f4;
-        }
-
-        .search-btn-yandex {
-            background: #ff0000;
-        }
-
-        .search-btn-tineye {
-            background: #25aae1;
-        }
-
-        .search-btn-archive {
-            background: #666;
-        }
-
-        .metadata-table {
-            width: 100%;
-            border-collapse: collapse;
-            margin-top: 20px;
-        }
-
-        .metadata-table th,
-        .metadata-table td {
-            padding: 12px;
-            text-align: right;
-            border-bottom: 1px solid var(--border-color);
-        }
-
-        .metadata-table th {
-            background: var(--light-bg);
-            font-weight: 600;
-            color: var(--text-dark);
-        }
-
-        .metadata-table tr:hover {
-            background: var(--light-bg);
-        }
-
-        .loading {
-            display: none;
-            text-align: center;
-            padding: 40px;
-        }
-
-        .loading.active {
-            display: block;
-        }
-
-        .spinner {
-            border: 4px solid var(--light-bg);
-            border-top: 4px solid var(--primary-color);
-            border-radius: 50%;
-            width: 40px;
-            height: 40px;
-            animation: spin 1s linear infinite;
-            margin: 0 auto 20px;
-        }
-
-        @keyframes spin {
-            0% { transform: rotate(0deg); }
-            100% { transform: rotate(360deg); }
-        }
-
-        .error-message {
-            background: #fef2f2;
-            border: 1px solid #fecaca;
-            color: #dc2626;
-            padding: 15px;
-            border-radius: 8px;
-            margin-bottom: 20px;
-            display: none;
-        }
-
-        .error-message.active {
-            display: block;
-        }
-
-        .success-message {
-            background: #f0fdf4;
-            border: 1px solid #bbf7d0;
-            color: #16a34a;
-            padding: 15px;
-            border-radius: 8px;
-            margin-bottom: 20px;
-            display: none;
-        }
-
-        .success-message.active {
-            display: block;
-        }
-
-        .info-box {
-            background: #eff6ff;
-            border-left: 4px solid var(--primary-color);
-            padding: 15px;
-            border-radius: 8px;
-            margin-bottom: 20px;
-        }
-
-        .info-box h4 {
-            margin-bottom: 10px;
-            color: var(--primary-color);
-        }
-
-        .info-box p {
-            color: var(--text-light);
-            margin-bottom: 8px;
-        }
-
-        @media (max-width: 768px) {
-            .header h1 {
-                font-size: 1.8em;
-            }
-
-            .frames-grid {
-                grid-template-columns: 1fr;
-            }
-
-            .score-display {
-                flex-direction: column;
-                align-items: center;
-            }
-        }
-    </style>
+    <link rel="stylesheet" href="/static/styles.css">
 </head>
 <body>
     <div class="container">
-        <!-- الرأس -->
-        <div class="header">
-            <h1>🎬 محقق الفيديو الأصلي</h1>
-            <p>أداة متقدمة للبحث عن أصل الفيديوهات والصور</p>
-        </div>
+        <header class="header">
+            <h1>محقق الفيديو الأصلي</h1>
+            <p>أداة لتحليل مصدر وجودة مقاطع الفيديو</p>
+        </header>
 
-        <!-- التبويبات -->
-        <div class="nav-tabs">
-            <button class="nav-btn active" onclick="switchTab('upload')">📤 رفع الفيديو</button>
-            <button class="nav-btn" onclick="switchTab('guide')">📖 الدليل والمعايير</button>
-        </div>
+        <nav class="nav-tabs">
+            <button class="nav-btn" id="uploadTab" data-target="uploadSection">تحميل وتحليل</button>
+            <button class="nav-btn" id="resultsTab" data-target="resultsSection">عرض النتائج</button>
+        </nav>
 
-        <!-- تبويب رفع الفيديو -->
-        <div id="upload" class="main-content active">
-            <div class="info-box">
-                <h4>🎯 كيفية الاستخدام:</h4>
-                <p>1. ارفع ملف الفيديو (MP4, AVI, MOV, إلخ)</p>
-                <p>2. سيتم تحليل الفيديو واستخراج 6 لقطات شاشة</p>
-                <p>3. اختر لقطة واضحة وابحث عنها في محركات البحث</p>
-                <p>4. قارن النتائج لتحديد الأصل والدقة الأعلى</p>
-            </div>
+        <main>
+            <section id="uploadSection" class="main-content">
+                <form id="uploadForm" enctype="multipart/form-data">
+                    <div id="uploadArea" class="upload-area">
+                        <h3>اسحب وأفلت ملف الفيديو هنا</h3>
+                        <p>أو</p>
+                        <input type="file" id="videoInput" name="video" accept="video/*">
+                        <label for="videoInput" class="btn btn-primary">اختر ملفًا</label>
+                        <p id="fileNameDisplay" style="margin-top: 15px;"></p>
+                    </div>
+                    <div style="text-align: center; margin-top: 20px;">
+                        <button type="submit" id="uploadButton" class="btn btn-success" style="display: none;">ابدأ التحليل</button>
+                    </div>
+                </form>
+            </section>
 
-            <div id="errorMessage" class="error-message"></div>
-            <div id="successMessage" class="success-message"></div>
-
-            <div class="upload-area" id="uploadArea" onclick="document.getElementById('videoInput').click()">
-                <h3>📁 اسحب الفيديو هنا أو انقر للاختيار</h3>
-                <p>الصيغ المدعومة: MP4, AVI, MOV, MKV, FLV, WMV, WebM</p>
-                <p style="font-size: 0.9em; color: #999;">الحد الأقصى: 100 ميجا</p>
-            </div>
-
-            <input type="file" id="videoInput" accept="video/*" onchange="handleFileSelect(event)">
-
-            <div id="loading" class="loading">
+            <section id="loadingSection" class="main-content loading">
                 <div class="spinner"></div>
-                <p>جاري معالجة الفيديو...</p>
-            </div>
+                <p>جاري تحليل الفيديو... قد تستغرق هذه العملية عدة دقائق.</p>
+            </section>
 
-            <div id="resultsSection" class="results-section">
-                <!-- درجة الجودة -->
-                <div id="qualityScoreCard" class="quality-score-card"></div>
+            <section id="resultsSection" class="main-content results-section">
+                <h2>نتائج التحليل</h2>
+                
+                <div id="qualityScoreCard" class="quality-score-card">
+                    <div class="score-display">
+                        <div id="scoreCircle" class="score-circle">0%</div>
+                        <div class="score-info">
+                            <h3 id="scoreText">درجة الجودة: 0%</h3>
+                            <p id="confidenceLevel">مستوى الثقة: N/A</p>
+                        </div>
+                    </div>
+                    <ul id="indicatorsList" class="indicators-list">
+                        <!-- Indicators will be populated by JS -->
+                    </ul>
+                </div>
 
-                <!-- جدول المعلومات -->
-                <h3 style="margin-top: 30px; margin-bottom: 15px;">📊 معلومات الفيديو</h3>
-                <table class="metadata-table" id="metadataTable">
+                <h3>الإطارات الرئيسية المستخرجة</h3>
+                <div id="framesGrid" class="frames-grid">
+                    <!-- Frames will be populated by JS -->
+                </div>
+
+                <h3>البيانات الوصفية (Metadata)</h3>
+                <table class="metadata-table">
                     <thead>
                         <tr>
+                            <th>الخاصية</th>
                             <th>القيمة</th>
-                            <th>المعلومة</th>
                         </tr>
                     </thead>
-                    <tbody id="metadataBody"></tbody>
+                    <tbody id="metadataTableBody">
+                        <!-- Metadata will be populated by JS -->
+                    </tbody>
                 </table>
+            </section>
+        </main>
 
-                <!-- لقطات الشاشة -->
-                <h3 style="margin-top: 30px; margin-bottom: 15px;">🖼️ لقطات الشاشة (اختر واحدة للبحث)</h3>
-                <div class="frames-grid" id="framesGrid"></div>
-            </div>
-        </div>
+        <div id="errorMessage" class="message"></div>
+        <div id="successMessage" class="message"></div>
 
-        <!-- تبويب الدليل -->
-        <div id="guide" class="main-content">
-            <h2>📖 دليل البحث الجنائي الرقمي عن أصل الفيديوهات</h2>
-            
-            <div class="info-box" style="margin-top: 20px;">
-                <h4>🔍 المرحلة 1: البحث البصري المعكوس</h4>
-                <p><strong>الأدوات:</strong> Google Lens, Yandex Images, TinEye</p>
-                <p><strong>الطريقة:</strong> استخرج لقطة شاشة واضحة من الفيديو، ثم ابحث عنها في محركات البحث.</p>
-                <p><strong>الفائدة:</strong> تجد جميع النسخ المنشورة والمواقع التي نشرت الفيديو.</p>
-            </div>
-
-            <div class="info-box">
-                <h4>📅 المرحلة 2: تحليل البيانات الوصفية (Metadata)</h4>
-                <p><strong>المعايير:</strong></p>
-                <ul style="margin-right: 20px; margin-top: 10px;">
-                    <li>تاريخ الإنشاء (الأقدم = الأصل)</li>
-                    <li>الدقة (الأعلى = الأصل أو نسخة احترافية)</li>
-                    <li>معدل البت (الأعلى = جودة أفضل)</li>
-                    <li>نوع الكودك (ProRes, DNxHD = احترافي)</li>
-                </ul>
-            </div>
-
-            <div class="info-box">
-                <h4>🔐 المرحلة 3: التحقق من الأصالة (C2PA)</h4>
-                <p><strong>ما هو C2PA:</strong> معيار عالمي للتحقق من أصالة الملفات الرقمية.</p>
-                <p><strong>كيفية الاستخدام:</strong> ابحث عن شهادة C2PA في بيانات الملف.</p>
-            </div>
-
-            <div class="info-box">
-                <h4>⚙️ المرحلة 4: تقييم جودة الملف (Forensic Quality)</h4>
-                <p><strong>المؤشرات:</strong></p>
-                <ul style="margin-right: 20px; margin-top: 10px;">
-                    <li>عدم وجود ضغط زائد (Compression Artifacts)</li>
-                    <li>توازن الألوان الطبيعي</li>
-                    <li>عدم وجود شعارات مائية (Watermarks)</li>
-                </ul>
-            </div>
-
-            <div class="info-box">
-                <h4>🗂️ المرحلة 5: البحث في الأرشيفات الرقمية</h4>
-                <p><strong>الأرشيفات المهمة:</strong></p>
-                <ul style="margin-right: 20px; margin-top: 10px;">
-                    <li>Internet Archive (archive.org)</li>
-                    <li>YouTube</li>
-                    <li>Vimeo</li>
-                    <li>قواعد البيانات المتخصصة</li>
-                </ul>
-            </div>
-        </div>
+        <footer class="footer">
+            <p>&copy; 2025 Manus. جميع الحقوق محفوظة.</p>
+            <p><a href="#">سياسة الخصوصية</a> | <a href="#">شروط الخدمة</a></p>
+        </footer>
     </div>
 
-    <script>
-        // التبديل بين التبويبات
-        function switchTab(tabName) {
-            // إخفاء جميع التبويبات
-            const contents = document.querySelectorAll('.main-content');
-            contents.forEach(content => content.classList.remove('active'));
-
-            // إزالة الحالة النشطة من جميع الأزرار
-            const buttons = document.querySelectorAll('.nav-btn');
-            buttons.forEach(btn => btn.classList.remove('active'));
-
-            // إظهار التبويب المختار
-            document.getElementById(tabName).classList.add('active');
-
-            // تفعيل الزر المختار
-            event.target.classList.add('active');
-        }
-
-        // معالجة رفع الملف
-        const uploadArea = document.getElementById('uploadArea');
-        const videoInput = document.getElementById('videoInput');
-
-        uploadArea.addEventListener('dragover', (e) => {
-            e.preventDefault();
-            uploadArea.classList.add('dragover');
-        });
-
-        uploadArea.addEventListener('dragleave', () => {
-            uploadArea.classList.remove('dragover');
-        });
-
-        uploadArea.addEventListener('drop', (e) => {
-            e.preventDefault();
-            uploadArea.classList.remove('dragover');
-            const files = e.dataTransfer.files;
-            if (files.length > 0) {
-                videoInput.files = files;
-                handleFileSelect({ target: { files: files } });
-            }
-        });
-
-        function handleFileSelect(event) {
-            const file = event.target.files[0];
-            if (!file) return;
-
-            // التحقق من نوع الملف
-            const allowedTypes = ['video/mp4', 'video/x-msvideo', 'video/quicktime', 'video/x-matroska', 'video/x-flv', 'video/x-ms-wmv', 'video/webm'];
-            if (!allowedTypes.includes(file.type)) {
-                showError('نوع الملف غير مدعوم. الرجاء اختيار ملف فيديو صحيح.');
-                return;
-            }
-
-            // التحقق من حجم الملف (100 ميجا)
-            if (file.size > 100 * 1024 * 1024) {
-                showError('حجم الملف كبير جداً. الحد الأقصى 100 ميجا.');
-                return;
-            }
-
-            uploadVideo(file);
-        }
-
-        function uploadVideo(file) {
-            const formData = new FormData();
-            formData.append('file', file);
-
-            document.getElementById('loading').classList.add('active');
-            document.getElementById('resultsSection').classList.remove('active');
-            document.getElementById('errorMessage').classList.remove('active');
-
-            fetch('/api/upload', {
-                method: 'POST',
-                body: formData
-            })
-            .then(response => response.json())
-            .then(data => {
-                document.getElementById('loading').classList.remove('active');
-
-                if (data.success) {
-                    displayResults(data);
-                    showSuccess('تم رفع الفيديو بنجاح!');
-                } else {
-                    showError('حدث خطأ في معالجة الفيديو.');
-                }
-            })
-            .catch(error => {
-                document.getElementById('loading').classList.remove('active');
-                showError('خطأ في الاتصال بالخادم: ' + error.message);
-            });
-        }
-
-        function displayResults(data) {
-            // عرض درجة الجودة
-            displayQualityScore(data.quality_analysis);
-
-            // عرض معلومات الفيديو
-            displayMetadata(data.video_info);
-
-            // عرض لقطات الشاشة
-            displayFrames(data.frames);
-
-            document.getElementById('resultsSection').classList.add('active');
-        }
-
-        function displayQualityScore(analysis) {
-            const card = document.getElementById('quality
+    <script src="/static/script.js"></script>
+</body>
+</html>
