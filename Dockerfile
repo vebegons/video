@@ -25,5 +25,5 @@ RUN mkdir -p uploads static templates
 # تعريض المنفذ
 EXPOSE 8000
 
-# تشغيل التطبيق (السبب الرئيسي للمشكلة: يجب أن يكون المسار app.app.main)
+# تشغيل التطبيق
 CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000"]
