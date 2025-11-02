@@ -1,0 +1,9 @@
+services:
+  - type: web
+    name: video-source-finder
+    env: docker
+    dockerfilePath: ./Dockerfile
+    autoDeploy: true
+    envVars:
+      - key: PORT
+        value: 8000
