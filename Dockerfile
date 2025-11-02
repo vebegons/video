@@ -13,8 +13,9 @@ WORKDIR /app
 # نسخ ملف المتطلبات
 COPY requirements.txt .
 
-# تثبيت المكتبات Python
-RUN pip install --no-cache-dir -r requirements.txt
+# تثبيت المكتبات Python وتثبيت python-multipart بشكل صريح
+RUN pip install --no-cache-dir -r requirements.txt && \
+    pip install python-multipart
 
 # نسخ ملفات التطبيق
 COPY . .
