@@ -1,7 +1,8 @@
-from fastapi import FastAPI, UploadFile, File, HTTPException
+from fastapi import FastAPI, UploadFile, File, HTTPException, Request
 from fastapi.responses import FileResponse, HTMLResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.templating import Jinja2Templates
 import os
 import shutil
 from pathlib import Path
@@ -11,6 +12,12 @@ import subprocess
 from PIL import Image
 import io
 import re
+import aiofiles
+import logging
+
+# إعدادات التسجيل (Logging)
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
 
 # إعدادات المشروع
 BASE_DIR = Path(__file__).parent.parent
@@ -23,12 +30,19 @@ UPLOAD_DIR.mkdir(exist_ok=True)
 STATIC_DIR.mkdir(exist_ok=True)
 TEMPLATES_DIR.mkdir(exist_ok=True)
 
-# إنشاء تطبيق FastAPI
+# إعدادات الملفات
+MAX_FILE_SIZE = 100 * 1024 * 1024  # 100MB
+ALLOWED_EXTENSIONS = {"mp4", "avi", "mov", "mkv", "flv", "wmv", "webm"}
+
+# إعداد تطبيق FastAPI
 app = FastAPI(
     title="محقق الفيديو الأصلي",
     description="أداة متقدمة للبحث عن أصل الفيديوهات والصور",
     version="1.0.0"
 )
+
+# إعداد القوالب
+templates = Jinja2Templates(directory=TEMPLATES_DIR)
 
 # إضافة StaticFiles لخدمة الملفات الثابتة (CSS/JS)
 app.mount("/static", StaticFiles(directory=STATIC_DIR), name="static")
@@ -263,12 +277,13 @@ def get_video_info(video_path):
                             info["bitrate"] = f"{bitrate_value:.1f} Mbps"
                         except:
                             pass
-            except:
+            except Exception as e:
+                logger.error(f"Error parsing ffprobe output: {e}")
                 pass
             
             return info
     except Exception as e:
-        print(f"خطأ في استخراج معلومات الفيديو: {str(e)}")
+        logger.error(f"Error in get_video_info: {e}")
     
     return None
 
@@ -280,95 +295,127 @@ def extract_frames(video_path, num_frames=6):
     frames = []
     try:
         # الحصول على معلومات الفيديو أولاً
-        cmd = ['ffprobe', '-v', 'error', '-show_entries', 'format=duration', '-of', 'default=noprint_wrappers=1:nokey=1:noprint_sections=1', video_path]
-        result = subprocess.run(cmd, capture_output=True, text=True, timeout=30)
-        
-        if result.returncode != 0:
-            return frames
-        
+        info = get_video_info(video_path)
+        if not info or 'duration' not in info:
+            logger.error("Could not get video duration for frame extraction.")
+            return []
+
+        # تحويل المدة إلى ثواني
         try:
-            duration = float(result.stdout.strip())
+            duration_parts = info['duration'].split(':')
+            if len(duration_parts) == 3:
+                duration_seconds = int(duration_parts[0]) * 3600 + int(duration_parts[1]) * 60 + float(duration_parts[2])
+            else:
+                duration_seconds = float(info['duration'])
         except:
-            duration = 10  # قيمة افتراضية
+            duration_seconds = 60 # قيمة افتراضية
+
+        # حساب الفواصل الزمنية
+        interval = duration_seconds / (num_frames + 1)
         
-        # حساب المواضع الزمنية لاستخراج الصور
-        timestamps = [int(duration * (i + 1) / (num_frames + 1)) for i in range(num_frames)]
-        
-        # استخراج الصور
-        for idx, timestamp in enumerate(timestamps):
-            output_path = UPLOAD_DIR / f"frame_{idx}.jpg"
+        for i in range(1, num_frames + 1):
+            timestamp = i * interval
+            frame_filename = f"{Path(video_path).stem}_frame_{i}.jpg"
+            frame_path = STATIC_DIR / frame_filename
             
+            # استخدام FFmpeg لاستخراج الإطار
             cmd = [
-                'ffmpeg', '-ss', str(timestamp), '-i', video_path,
-                '-vframes', '1', '-vf', 'scale=320:180',
-                '-y', str(output_path)
+                'ffmpeg', '-ss', str(timestamp), '-i', video_path, '-vframes', '1',
+                '-q:v', '2', '-y', str(frame_path)
             ]
+            subprocess.run(cmd, check=True, capture_output=True, timeout=30)
             
-            result = subprocess.run(cmd, capture_output=True, timeout=30)
+            frames.append(f"/static/{frame_filename}")
             
-            if result.returncode == 0 and output_path.exists():
-                frames.append({
-                    "id": idx,
-                    "timestamp": timestamp,
-                    "path": f"/uploads/frame_{idx}.jpg"
-                })
-        
-        return frames
+    except subprocess.CalledProcessError as e:
+        logger.error(f"FFmpeg failed during frame extraction: {e.stderr.decode()}")
     except Exception as e:
-        print(f"خطأ في استخراج الصور: {str(e)}")
-        return frames
+        logger.error(f"Error during frame extraction: {e}")
+        
+    return frames
 
 # ============================================================================
 # المسارات (Routes)
 # ============================================================================
 
 @app.get("/", response_class=HTMLResponse)
-async def read_root():
-    """الصفحة الرئيسية"""
-    html_path = TEMPLATES_DIR / "index.html"
-    if html_path.exists():
-        with open(html_path, 'r', encoding='utf-8') as f:
-            return f.read()
-    return "<h1>محقق الفيديو الأصلي</h1>"
+async def index(request: Request):
+    """عرض الصفحة الرئيسية"""
+    return templates.TemplateResponse("index.html", {"request": request})
 
 @app.post("/api/upload")
 async def upload_video(file: UploadFile = File(...)):
-    """رفع ملف فيديو ومعالجته"""
+    """رفع ومعالجة الفيديو"""
     try:
-        # التحقق من نوع الملف
-        allowed_extensions = {'.mp4', '.avi', '.mov', '.mkv', '.flv', '.wmv', '.webm'}
-        file_ext = Path(file.filename).suffix.lower()
+        # 1. التحقق من نوع الملف
+        file_extension = file.filename.split(".")[-1].lower()
+        if file_extension not in ALLOWED_EXTENSIONS:
+            logger.error(f"Invalid file extension: {file_extension}")
+            raise HTTPException(status_code=400, detail="صيغة الملف غير مدعومة. يرجى رفع ملف فيديو.")
+
+        # 2. حفظ الملف المؤقت
+        temp_file_path = UPLOAD_DIR / file.filename
         
-        if file_ext not in allowed_extensions:
-            raise HTTPException(status_code=400, detail="نوع الملف غير مدعوم")
+        # استخدام aiofiles للكتابة غير المتزامنة
+        file_size = 0
+        async with aiofiles.open(temp_file_path, 'wb') as out_file:
+            while content := await file.read(1024 * 1024):  # قراءة 1MB في كل مرة
+                file_size += len(content)
+                if file_size > MAX_FILE_SIZE:
+                    # حذف الملف الزائد
+                    os.remove(temp_file_path)
+                    logger.error(f"File size exceeded limit: {file_size} bytes")
+                    raise HTTPException(status_code=400, detail="حجم الملف يتجاوز الحد المسموح به (100 ميجابايت).")
+                await out_file.write(content)
         
-        # حفظ الملف
-        file_path = UPLOAD_DIR / file.filename
-        with open(file_path, "wb") as buffer:
-            shutil.copyfileobj(file.file, buffer)
-        
-        # استخراج معلومات الفيديو
+        # 3. بدء التحليل
+        analysis_result = await analyze_video(temp_file_path)
+
+        return analysis_result
+
+    except HTTPException as e:
+        # إعادة توجيه أخطاء HTTP القياسية (مثل 400)
+        raise e
+    except Exception as e:
+        # طباعة الخطأ الفعلي في السجلات
+        logger.error(f"Internal Server Error during upload: {e}", exc_info=True)
+        # إرجاع خطأ 500 مع رسالة عامة للمستخدم
+        raise HTTPException(status_code=500, detail=f"خطأ داخلي في الخادم أثناء المعالجة: {e}")
+
+async def analyze_video(file_path):
+    """دالة مساعدة لتنفيذ التحليل"""
+    try:
+        # 1. استخراج معلومات الفيديو
         video_info = get_video_info(str(file_path))
         
-        # حساب درجة الجودة
+        if not video_info:
+            raise Exception("فشل في استخراج معلومات الفيديو (قد يكون الملف تالفاً أو غير مدعوم).")
+
+        # 2. حساب درجة الجودة
         quality_analysis = calculate_quality_score(video_info)
         
-        # استخراج لقطات شاشة
+        # 3. استخراج لقطات شاشة
         frames = extract_frames(str(file_path), num_frames=6)
         
-        return {
+        # 4. تجميع النتيجة
+        result = {
             "success": True,
-            "message": "تم رفع الفيديو بنجاح",
+            "message": "تم رفع الفيديو وتحليله بنجاح",
             "video_info": video_info,
             "quality_analysis": quality_analysis,
             "frames": frames,
-            "filename": file.filename
+            "filename": Path(file_path).name
         }
-    
-    except HTTPException as e:
-        raise e
+        
+        # 5. حذف الملف المؤقت بعد التحليل
+        os.remove(file_path)
+        
+        return result
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"خطأ في معالجة الملف: {str(e)}")
+        # حذف الملف في حالة فشل التحليل
+        if os.path.exists(file_path):
+            os.remove(file_path)
+        raise e
 
 @app.get("/api/analyze")
 async def analyze_metadata(filename: str):
@@ -379,27 +426,15 @@ async def analyze_metadata(filename: str):
         if not file_path.exists():
             raise HTTPException(status_code=404, detail="الملف غير موجود")
         
-        video_info = get_video_info(str(file_path))
-        quality_analysis = calculate_quality_score(video_info)
+        # استخدام دالة analyze_video الجديدة
+        analysis_result = await analyze_video(file_path)
         
-        analysis = {
-            "success": True,
-            "filename": filename,
-            "metadata": video_info,
-            "quality_analysis": quality_analysis,
-            "analysis": {
-                "is_original": quality_analysis["score"] >= 70,
-                "confidence": quality_analysis["confidence"],
-                "confidence_level": quality_analysis["confidence_level"],
-                "indicators": quality_analysis["indicators"],
-                "score": quality_analysis["score"]
-            }
-        }
-        
-        return analysis
+        return analysis_result
     except HTTPException as e:
+        logger.error(f"Error in /api/analyze: {e}", exc_info=True)
         raise e
     except Exception as e:
+        logger.error(f"Error in /api/analyze: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail=str(e))
 
 @app.get("/uploads/{filename}")
