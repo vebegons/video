@@ -1,4 +1,4 @@
-document.addEventListener('DOMContentLoaded', () => {
+Document.addEventListener('DOMContentLoaded', () => {
     const uploadArea = document.getElementById('uploadArea');
     const videoInput = document.getElementById('videoInput');
     const uploadForm = document.getElementById('uploadForm');
@@ -105,7 +105,10 @@ document.addEventListener('DOMContentLoaded', () => {
         document.getElementById('uploadButton').style.display = 'none';
         document.getElementById('fileNameDisplay').textContent = 'الرجاء سحب وإفلات ملف فيديو أو النقر هنا للتحميل';
 
-        const formData = new FormData(uploadForm);
+        const formData = new FormData();
+        const fileToUpload = videoInput.files[0];
+        // 🌟 التعديل المطلوب: إضافة الملف بشكل صريح إلى FormData
+        formData.append('file', fileToUpload, fileToUpload.name); 
         
         try {
             const response = await fetch('/api/upload', {
